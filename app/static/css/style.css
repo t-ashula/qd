@@ -1,0 +1,92 @@
+/* Custom styles for QD application */
+
+/* General styles */
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* Header styles */
+header {
+    margin-bottom: 2rem;
+}
+
+header h1 a:hover {
+    text-decoration: none;
+}
+
+/* Card styles */
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    color: #212529;
+    font-weight: 600;
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Search results */
+.list-group-item {
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Episode page */
+.segment {
+    transition: background-color 0.3s ease;
+    border-left: 3px solid transparent;
+    padding-left: 1rem;
+}
+
+.segment:hover {
+    border-left-color: #0d6efd;
+}
+
+.segment-active {
+    border-left-color: #0d6efd;
+    background-color: #e2f3ff;
+}
+
+.timestamp {
+    font-family: monospace;
+}
+
+/* Audio player */
+audio {
+    width: 100%;
+    border-radius: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+
+    .audio-player {
+        padding: 0.5rem 0;
+    }
+}

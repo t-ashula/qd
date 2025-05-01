@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}QD - Episode: {{ episode.name }}{% endblock %}
+
+{% block head %}
+<style>
+    .segment-active {
+        background-color: #e2f3ff;
+    }
+
+    .audio-player {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        padding: 1rem 0;
+        z-index: 100;
+        border-bottom: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="mb-4">
+            <h2>{{ episode.name }}</h2>
+            <p>
+                <span class="badge bg-secondary">{{ episode.media_type }}</span>
+                <span class="badge bg-info">{{ episode.bytes|int // 1024 }} KB</span>
+                {% if episode.length %}
+                <span class="badge bg-success">{{ episode.length|int // 60 }}:{{ "%02d"|format(episode.length|int % 60)
+                    }}</span>
+                {% endif %}
+                <span class="badge bg-dark">{{ episode.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </p>
+        </div>
+
+        <div class="audio-player mb-4">
+            <audio controls class="w-100" id="audio-player">
+                <source src="/media/{{ episode.id }}.{{ episode.media_type.split('/')[-1] }}"
+                    type="{{ episode.media_type }}">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <h3>Transcription</h3>
+        <div class="segments">
+            {% for segment in episode.segments %}
+            <div class="segment" id="seg{{ segment.seg_no }}">
+                <div class="d-flex justify-content-between">
+                    <div class="timestamp">
+                        <span class="badge bg-light text-dark">{{ segment.seg_no }}</span>
+                        <button class="btn btn-sm btn-outline-secondary play-segment" data-start="{{ segment.start }}"
+                            data-end="{{ segment.end }}">
+                            {{ segment.start|int // 60 }}:{{ "%02d"|format(segment.start|int % 60) }} -
+                            {{ segment.end|int // 60 }}:{{ "%02d"|format(segment.end|int % 60) }}
+                        </button>
+                    </div>
+                </div>
+                <p class="mt-2">{{ segment.text }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const audioPlayer = document.getElementById('audio-player');
+        const segments = document.querySelectorAll('.segment');
+        const playButtons = document.querySelectorAll('.play-segment');
+
+        // Handle segment play buttons
+        playButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                const start = parseFloat(this.getAttribute('data-start'));
+                const end = parseFloat(this.getAttribute('data-end'));
+
+                // Set current time and play
+                audioPlayer.currentTime = start;
+                audioPlayer.play();
+
+                // Highlight active segment
+                segments.forEach(seg => seg.classList.remove('segment-active'));
+                this.closest('.segment').classList.add('segment-active');
+
+                // Stop at end time
+                const checkTime = function () {
+                    if (audioPlayer.currentTime >= end) {
+                        audioPlayer.pause();
+                        audioPlayer.removeEventListener('timeupdate', checkTime);
+                    }
+                };
+
+                audioPlayer.addEventListener('timeupdate', checkTime);
+            });
+        });
+
+        // Handle hash navigation
+        if (window.location.hash) {
+            const targetSegment = document.querySelector(window.location.hash);
+            if (targetSegment) {
+                targetSegment.scrollIntoView();
+                targetSegment.classList.add('segment-active');
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}QD - Upload Audio{% endblock %}
+
+{% block head %}
+<style>
+    .drop-zone {
+        max-width: 100%;
+        height: 200px;
+        padding: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 20px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #6c757d;
+        border: 3px dashed #dee2e6;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+
+    .drop-zone--over {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .drop-zone__input {
+        display: none;
+    }
+
+    .drop-zone__thumb {
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        background-color: #f8f9fa;
+        background-size: cover;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .drop-zone__prompt {
+        color: #6c757d;
+    }
+
+    .file-info {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        display: none;
+    }
+
+    .progress {
+        display: none;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Upload Audio File</h2>
+                <p class="card-text">Upload an audio file (MP3, WAV, M4A) for transcription and search.</p>
+
+                <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+                    <div class="drop-zone">
+                        <span class="drop-zone__prompt">Drop file here or click to upload</span>
+                        <input type="file" name="file" class="drop-zone__input" id="file-input" accept=".mp3,.wav,.m4a">
+                    </div>
+
+                    <div class="file-info" id="file-info">
+                        <p class="mb-0"><strong>Selected file:</strong> <span id="file-name"></span></p>
+                        <p class="mb-0"><strong>Size:</strong> <span id="file-size"></span></p>
+                        <p class="mb-0"><strong>Type:</strong> <span id="file-type"></span></p>
+                    </div>
+
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                            style="width: 0%"></div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" id="upload-button">Upload</button>
+                    </div>
+                </form>
+
+                <div class="alert alert-info mt-4">
+                    <h5>Processing Steps:</h5>
+                    <ol>
+                        <li>Upload audio file</li>
+                        <li>Transcribe audio using Kotoba Whisper v2.2</li>
+                        <li>Vectorize segments using E5 and SBERT models</li>
+                        <li>Store in database and vector search index</li>
+                    </ol>
+                    <p class="mb-0"><strong>Note:</strong> Processing may take some time depending on the file size.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const dropZoneElement = document.querySelector('.drop-zone');
+        const inputElement = dropZoneElement.querySelector('.drop-zone__input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const fileType = document.getElementById('file-type');
+        const uploadForm = document.getElementById('upload-form');
+        const uploadButton = document.getElementById('upload-button');
+        const progressBar = document.querySelector('.progress');
+        const progressBarInner = document.querySelector('.progress-bar');
+
+        // Click to upload
+        dropZoneElement.addEventListener('click', (e) => {
+            inputElement.click();
+        });
+
+        // Change in input
+        inputElement.addEventListener('change', (e) => {
+            if (inputElement.files.length) {
+                updateFileInfo(inputElement.files[0]);
+            }
+        });
+
+        // Drag over
+        dropZoneElement.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZoneElement.classList.add('drop-zone--over');
+        });
+
+        // Drag leave
+        ['dragleave', 'dragend'].forEach(type => {
+            dropZoneElement.addEventListener(type, (e) => {
+                dropZoneElement.classList.remove('drop-zone--over');
+            });
+        });
+
+        // Drop
+        dropZoneElement.addEventListener('drop', (e) => {
+            e.preventDefault();
+
+            if (e.dataTransfer.files.length) {
+                inputElement.files = e.dataTransfer.files;
+                updateFileInfo(e.dataTransfer.files[0]);
+            }
+
+            dropZoneElement.classList.remove('drop-zone--over');
+        });
+
+        // Update file info
+        function updateFileInfo(file) {
+            // Show file info
+            fileInfo.style.display = 'block';
+
+            // Update file info
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileType.textContent = file.type;
+
+            // Update drop zone
+            const dropZonePrompt = dropZoneElement.querySelector('.drop-zone__prompt');
+            dropZonePrompt.textContent = file.name;
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submit
+        uploadForm.addEventListener('submit', (e) => {
+            if (!inputElement.files.length) {
+                e.preventDefault();
+                alert('Please select a file to upload.');
+                return;
+            }
+
+            // Show progress bar
+            progressBar.style.display = 'flex';
+            uploadButton.disabled = true;
+            uploadButton.textContent = 'Uploading...';
+
+            // Simulate progress (in a real app, you'd use XHR or Fetch API to track actual progress)
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 5;
+                progressBarInner.style.width = progress + '%';
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        });
+    });
+</script>
+{% endblock %}

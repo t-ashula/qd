@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "qd"
+version = "0.1.0"
+description = "File upload, transcription, vectorization, and search with Qdrant"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.12"
+uvicorn = "^0.27.0"
+sqlalchemy = "^2.0.27"
+psycopg2-binary = "^2.9.9"
+python-multipart = "^0.0.9"
+qdrant-client = "^1.7.0"
+pydantic = "^2.6.1"
+uuid = "^1.30"
+transformers = "^4.38.1"
+torch = "^2.2.0"
+python-dotenv = "^1.0.1"
+sentence-transformers = "^2.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+black = "^24.1.1"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}QD - Search Results{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="mb-4">
+            <form action="/search" method="get" class="d-flex">
+                <input type="text" class="form-control me-2" name="q" value="{{ query }}"
+                    placeholder="Enter search query..." required>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+        </div>
+
+        <h2>Search Results for "{{ query }}"</h2>
+        <p>Found {{ results|length }} results</p>
+
+        {% if results %}
+        <div class="list-group">
+            {% for result in results %}
+            <a href="/episodes/{{ result.payload.episode_id }}#seg{{ result.payload.seg_no }}"
+                class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">Segment {{ result.payload.seg_no }}</h5>
+                    <small class="text-muted">Score: {{ "%.2f"|format(result.score) }}</small>
+                </div>
+                <p class="mb-1">{{ result.payload.text }}</p>
+                <small class="text-muted">
+                    {{ result.payload.start|int // 60 }}:{{ "%02d"|format(result.payload.start|int % 60) }} -
+                    {{ result.payload.end|int // 60 }}:{{ "%02d"|format(result.payload.end|int % 60) }}
+                    ({{ result.payload.episode_id }})
+                </small>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            No results found for "{{ query }}". Try a different search query.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
