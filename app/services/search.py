@@ -1,5 +1,6 @@
-import heapq
 from typing import Any, Dict, List
+
+from qdrant_client.http.models import ScoredPoint
 
 from app.services.embedding import embedding_service
 from app.vectorstore.qdrant import qdrant_manager
@@ -36,8 +37,8 @@ class SearchService:
 
     def _merge_results(
         self,
-        e5_results: List[Dict[str, Any]],
-        v2_results: List[Dict[str, Any]],
+        e5_results: List[ScoredPoint],
+        v2_results: List[ScoredPoint],
         limit: int,
     ) -> List[Dict[str, Any]]:
         """
@@ -52,26 +53,30 @@ class SearchService:
             Merged results
         """
         # Create a dictionary to store the best score for each segment
-        best_scores = {}
+        best_scores: Dict[str, Dict[str, Any]] = {}
 
         # Process E5 results
         for result in e5_results:
-            segment_id = result.id
             score = result.score
             payload = result.payload
 
-            key = f"{payload['episode_id']}-{payload['seg_no']:04d}"
+            if payload is None:
+                continue
+
+            key: str = payload["segment_id"]
 
             if key not in best_scores or score > best_scores[key]["score"]:
                 best_scores[key] = {"score": score, "payload": payload, "model": "e5"}
 
         # Process V2 results
         for result in v2_results:
-            segment_id = result.id
             score = result.score
             payload = result.payload
 
-            key = f"{payload['episode_id']}-{payload['seg_no']:04d}"
+            if payload is None:
+                continue
+
+            key = payload["segment_id"]
 
             if key not in best_scores or score > best_scores[key]["score"]:
                 best_scores[key] = {"score": score, "payload": payload, "model": "v2"}

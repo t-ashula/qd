@@ -1,7 +1,6 @@
 import mimetypes
-import os
 import uuid
-from typing import Any, BinaryIO, Dict, List, Tuple
+from typing import Any, BinaryIO, Dict
 
 from sqlalchemy.orm import Session
 
@@ -71,19 +70,20 @@ class UploadService:
 
         # Update episode length if available
         if "duration" in transcription:
-            episode.length = int(transcription["duration"])
+            # save as ms
+            episode.length = int(float(transcription["duration"]) * 1000)  # type: ignore
             db.commit()
 
         return episode_id
 
-    def _get_media_type(self, filename: str) -> str:
+    def _get_media_type(self, filename: str) -> str | None:
         """
         Get media type from filename
         """
         media_type, _ = mimetypes.guess_type(filename)
         return media_type
 
-    def _get_extension(self, media_type: str) -> str:
+    def _get_extension(self, media_type: str | None) -> str:
         """
         Get file extension from media type
         """
@@ -111,8 +111,10 @@ class UploadService:
             # Extract text and timestamps
             text = chunk.get("text", "")
             timestamps = chunk.get("timestamp", [0, 0])
-            start_time = int(timestamps[0])
-            end_time = int(timestamps[1])
+
+            # ms
+            start_time = int(float(timestamps[0]) * 1000)
+            end_time = int(float(timestamps[1]) * 1000)
 
             # Create segment record
             segment = EpisodeSegment(
@@ -135,12 +137,13 @@ class UploadService:
                 "text": text,
                 "episode_id": episode_id,
                 "seg_no": seg_no,
+                "segment_id": f"{episode_id}-{seg_no:04d}",
             }
 
             # Add to vector stores
-            segment_id = f"{episode_id}-{seg_no:04d}"
-            qdrant_manager.add_segment_e5(segment_id, e5_embedding, payload)
-            qdrant_manager.add_segment_v2(segment_id, sbert_embedding, payload)
+
+            qdrant_manager.add_segment_e5(e5_embedding, payload)
+            qdrant_manager.add_segment_v2(sbert_embedding, payload)
 
         # Commit all segments
         db.commit()

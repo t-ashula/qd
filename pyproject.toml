@@ -10,7 +10,7 @@ package-mode = false
 python = "^3.12"
 fastapi = "^0.115.12"
 uvicorn = "^0.27.0"
-sqlalchemy = "^2.0.27"
+sqlalchemy = "^2.0.40"
 psycopg2-binary = "^2.9.9"
 python-multipart = "^0.0.9"
 qdrant-client = "^1.7.0"
@@ -33,3 +33,6 @@ mypy = "^1.8.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

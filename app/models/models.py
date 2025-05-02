@@ -1,15 +1,13 @@
 import uuid
-from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
 Base = declarative_base()
 
 
-class Episode(Base):
+class Episode(Base):  # type: ignore[valid-type, misc]
     """
     Episodes table for storing uploaded media files metadata
     """
@@ -20,14 +18,14 @@ class Episode(Base):
     media_type = Column(String, nullable=False)  # content-type
     name = Column(String, nullable=False)  # original filename
     bytes = Column(Integer, nullable=False)  # file size
-    length = Column(Integer, nullable=True)  # duration in seconds
+    length = Column(Integer, nullable=True)  # duration in ms
     created_at = Column(DateTime, default=func.now())
 
     def __repr__(self):
         return f"<Episode(id='{self.id}', name='{self.name}')>"
 
 
-class EpisodeSegment(Base):
+class EpisodeSegment(Base):  # type: ignore[valid-type, misc]
     """
     Episode segments table for storing transcribed segments
     """
@@ -37,8 +35,8 @@ class EpisodeSegment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     episode_id = Column(String, ForeignKey("episodes.id"), nullable=False)
     seg_no = Column(Integer, nullable=False)
-    start = Column(Integer, nullable=False)  # start time in seconds
-    end = Column(Integer, nullable=False)  # end time in seconds
+    start = Column(Integer, nullable=False)  # start time in ms
+    end = Column(Integer, nullable=False)  # end time in ms
     text = Column(Text, nullable=False)  # transcribed text
     created_at = Column(DateTime, default=func.now())
 

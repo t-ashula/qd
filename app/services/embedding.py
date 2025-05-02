@@ -1,7 +1,7 @@
 from typing import List
 
 import torch
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer  # type: ignore
 
 # Load embedding models
 E5_MODEL_NAME = "intfloat/multilingual-e5-base"

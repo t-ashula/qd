@@ -1,7 +1,4 @@
-from typing import Any, Dict, List
-
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Request,
-                     UploadFile)
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -31,7 +28,7 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
     """
     try:
         # Process upload
-        episode_id = upload_service.process_upload(file.file, file.filename, db)
+        episode_id = upload_service.process_upload(file.file, f"{file.filename}", db)
 
         # Redirect to episode page
         return RedirectResponse(url=f"/episodes/{episode_id}", status_code=303)

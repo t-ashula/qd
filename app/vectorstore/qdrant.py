@@ -1,10 +1,10 @@
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.http import models
-from qdrant_client.http.models import Distance, PointStruct, VectorParams
+from qdrant_client.http.models import Distance, PointStruct, ScoredPoint, VectorParams
 
 # Load environment variables
 load_dotenv()
@@ -51,9 +51,7 @@ class QdrantManager:
                 vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
             )
 
-    def add_segment_e5(
-        self, segment_id: str, vector: List[float], payload: Dict[str, Any]
-    ):
+    def add_segment_e5(self, vector: List[float], payload: Dict[str, Any]):
         """
         Add a segment to the E5 collection
         """
@@ -61,16 +59,14 @@ class QdrantManager:
             collection_name=COLLECTION_E5,
             points=[
                 PointStruct(
-                    id=segment_id,
+                    id=str(uuid.uuid4()),
                     vector=vector,
                     payload=payload,
                 )
             ],
         )
 
-    def add_segment_v2(
-        self, segment_id: str, vector: List[float], payload: Dict[str, Any]
-    ):
+    def add_segment_v2(self, vector: List[float], payload: Dict[str, Any]):
         """
         Add a segment to the V2 collection
         """
@@ -78,7 +74,7 @@ class QdrantManager:
             collection_name=COLLECTION_V2,
             points=[
                 PointStruct(
-                    id=segment_id,
+                    id=str(uuid.uuid4()),
                     vector=vector,
                     payload=payload,
                 )
