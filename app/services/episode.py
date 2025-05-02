@@ -47,7 +47,7 @@ class EpisodeService:
                 "id": episode.id,
                 "name": episode.name,
                 "media_type": episode.media_type,
-                "ext": self._get_extension(episode.media_type),
+                "ext": self._get_extension(episode.media_type),  # type: ignore
                 "bytes": episode.bytes,
                 "length": episode.length / 1000 if episode.length is not None else 0,
                 "created_at": episode.created_at,
