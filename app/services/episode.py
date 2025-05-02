@@ -105,7 +105,7 @@ class EpisodeService:
         if not episode:
             return None
 
-        return episode.id
+        return str(episode.id)
 
     def get_episode(self, episode_id: str, db: Session) -> Optional[Dict[str, Any]]:
         """
