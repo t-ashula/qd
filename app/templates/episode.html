@@ -23,7 +23,12 @@
 <div class="row">
     <div class="col-md-12">
         <div class="mb-4">
-            <h2>{{ episode.name }}</h2>
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>{{ episode.name }}</h2>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                    <i class="bi bi-trash"></i> 削除
+                </button>
+            </div>
             <p>
                 <span class="badge bg-secondary">{{ episode.media_type }}</span>
                 <span class="badge bg-info">{{ episode.bytes|int // 1024 }} KB</span>
@@ -59,6 +64,28 @@
                 <p class="mt-2">{{ segment.text }}</p>
             </div>
             {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">エピソードの削除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>エピソード「{{ episode.name }}」を削除してもよろしいですか？</p>
+                <p class="text-danger">この操作は取り消せません。エピソードのデータ、メディアファイル、検索インデックスがすべて削除されます。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <form id="deleteForm" method="POST">
+                    <button type="submit" class="btn btn-danger">削除する</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -105,6 +132,28 @@
                 targetSegment.classList.add('segment-active');
             }
         }
+    });
+
+    // Set up delete form
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Send DELETE request
+            fetch('/episodes/{{ episode.id }}', {
+                method: 'DELETE',
+            }).then(response => {
+                if (response.ok || response.redirected) {
+                    window.location.href = '/episodes';
+                } else {
+                    alert('削除に失敗しました。');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+                alert('削除に失敗しました。');
+            });
+        });
     });
 </script>
 {% endblock %}

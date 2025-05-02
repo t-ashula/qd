@@ -7,7 +7,7 @@ from app.models.models import Episode, EpisodeSegment
 
 class EpisodeService:
     """
-    Service for retrieving episode data
+    Service for retrieving and managing episode data
     """
 
     def get_episodes_list(
@@ -182,6 +182,34 @@ class EpisodeService:
         episode_data["segments"] = segments_data
 
         return episode_data
+
+    def delete_episode(self, episode_id: str, db: Session) -> bool:
+        """
+        Delete episode and all related data
+
+        Args:
+            episode_id: Episode ID
+            db: Database session
+
+        Returns:
+            True if episode was deleted, False otherwise
+        """
+        # Query episode
+        episode = db.query(Episode).filter(Episode.id == episode_id).first()
+
+        if not episode:
+            return False
+
+        # Delete segments
+        db.query(EpisodeSegment).filter(
+            EpisodeSegment.episode_id == episode_id
+        ).delete()
+
+        # Delete episode
+        db.delete(episode)
+        db.commit()
+
+        return True
 
     # TODO: unify UploadService, or save extension as column
     def _get_extension(self, media_type: str | None) -> str:

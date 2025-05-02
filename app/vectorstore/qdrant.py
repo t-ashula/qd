@@ -4,7 +4,14 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, PointStruct, ScoredPoint, VectorParams
+from qdrant_client.http.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 # Load environment variables
 load_dotenv()
@@ -99,6 +106,28 @@ class QdrantManager:
             collection_name=COLLECTION_V2,
             query_vector=vector,
             limit=limit,
+        )
+
+    def delete_points_by_episode_id(self, episode_id: str):
+        """
+        Delete all points related to an episode from both collections
+
+        Args:
+            episode_id: Episode ID to delete points for
+        """
+        f = Filter(
+            must=[FieldCondition(key="episode_id", match=MatchValue(value=episode_id))]
+        )
+        # Delete from E5 collection
+        self.client.delete(
+            collection_name=COLLECTION_E5,
+            points_selector=f,
+        )
+
+        # Delete from V2 collection
+        self.client.delete(
+            collection_name=COLLECTION_V2,
+            points_selector=f,
         )
 
 
