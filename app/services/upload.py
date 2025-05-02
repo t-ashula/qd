@@ -1,11 +1,13 @@
+import hashlib
 import mimetypes
 import uuid
-from typing import Any, BinaryIO, Dict
+from typing import Any, BinaryIO, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from app.models.models import Episode, EpisodeSegment
 from app.services.embedding import embedding_service
+from app.services.episode import episode_service
 from app.services.storage import storage_service
 from app.transcriber.transcriber import transcriber_service
 from app.vectorstore.qdrant import qdrant_manager
@@ -37,9 +39,6 @@ class UploadService:
         Returns:
             Episode ID
         """
-        # Generate UUID for the episode
-        episode_id = str(uuid.uuid4())
-
         # Get media type and extension
         media_type = self._get_media_type(filename)
         extension = self._get_extension(media_type)
@@ -48,8 +47,21 @@ class UploadService:
         if media_type not in self.supported_media_types:
             raise ValueError(f"Unsupported media type: {media_type}")
 
+        # Calculate file hash and check if already exists
+        file_hash, file_content = self._calculate_file_hash(file)
+        existing_episode_id = episode_service.get_episode_by_hash(file_hash, db)
+
+        if existing_episode_id:
+            # File already exists, return existing episode ID
+            return existing_episode_id
+
+        # Generate UUID for the new episode
+        episode_id = str(uuid.uuid4())
+
         # Save file to storage
-        file_path, file_size = storage_service.save_file(file, episode_id, extension)
+        file_path, file_size = storage_service.save_file_from_bytes(
+            file_content, episode_id, extension
+        )
 
         # Create episode record
         episode = Episode(
@@ -57,6 +69,7 @@ class UploadService:
             media_type=media_type,
             name=filename,
             bytes=file_size,
+            hash=file_hash,
             length=None,  # Will be updated after transcription
         )
         db.add(episode)
@@ -75,6 +88,27 @@ class UploadService:
             db.commit()
 
         return episode_id
+
+    def _calculate_file_hash(self, file: BinaryIO) -> Tuple[str, bytes]:
+        """
+        Calculate SHA256 hash of file
+
+        Args:
+            file: File-like object
+
+        Returns:
+            Tuple of (hash_string, file_content)
+        """
+        # Read the entire file content
+        file_content = file.read()
+
+        # Calculate SHA256 hash
+        sha256_hash = hashlib.sha256(file_content).hexdigest()
+
+        # Reset file pointer to beginning
+        file.seek(0)
+
+        return sha256_hash, file_content
 
     def _get_media_type(self, filename: str) -> str | None:
         """

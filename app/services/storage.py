@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import BinaryIO, Tuple
+from typing import BinaryIO, Tuple, Union
 
 # Media storage directory
 MEDIA_DIR = os.getenv("MEDIA_DIR", "media")
@@ -37,6 +37,32 @@ class StorageService:
         with open(file_path, "wb") as f:
             # Read file in chunks to avoid memory issues
             shutil.copyfileobj(file, f)
+
+        # Get file size
+        file_size = os.path.getsize(file_path)
+
+        return file_path, file_size
+
+    def save_file_from_bytes(
+        self, file_content: bytes, file_id: str, extension: str
+    ) -> Tuple[str, int]:
+        """
+        Save file content to storage
+
+        Args:
+            file_content: File content as bytes
+            file_id: Unique file ID
+            extension: File extension
+
+        Returns:
+            Tuple of file path and file size
+        """
+        # Create file path
+        file_path = os.path.join(MEDIA_DIR, f"{file_id}.{extension}")
+
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(file_content)
 
         # Get file size
         file_size = os.path.getsize(file_path)

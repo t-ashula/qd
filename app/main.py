@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,9 @@ async def startup_event():
     """
     # Initialize database
     init_db()
+
+    # Run Alembic migrations
+    subprocess.run(["poetry", "run", "alembic", "upgrade", "head"], check=True)
 
     # Initialize Qdrant collections
     qdrant_manager.init_collections()

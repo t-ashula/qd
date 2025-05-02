@@ -88,6 +88,25 @@ class EpisodeService:
             },
         }
 
+    def get_episode_by_hash(self, file_hash: str, db: Session) -> Optional[str]:
+        """
+        Get episode ID by file hash
+
+        Args:
+            file_hash: SHA256 hash of the file
+            db: Database session
+
+        Returns:
+            Episode ID or None if not found
+        """
+        # Query episode by hash
+        episode = db.query(Episode).filter(Episode.hash == file_hash).first()
+
+        if not episode:
+            return None
+
+        return episode.id
+
     def get_episode(self, episode_id: str, db: Session) -> Optional[Dict[str, Any]]:
         """
         Get episode data

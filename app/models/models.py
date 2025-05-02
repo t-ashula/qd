@@ -1,6 +1,15 @@
 import uuid
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
@@ -19,6 +28,7 @@ class Episode(Base):  # type: ignore[valid-type, misc]
     name = Column(String, nullable=False)  # original filename
     bytes = Column(Integer, nullable=False)  # file size
     length = Column(Integer, nullable=True)  # duration in ms
+    hash = Column(String(64), nullable=True, unique=True)  # sha256 hash
     created_at = Column(DateTime, default=func.now())
 
     def __repr__(self):
