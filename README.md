@@ -9,11 +9,13 @@ QD is a web application that allows users to upload audio files, transcribe them
 - Vectorize segments using multilingual-e5-base and sentence-bert-base-ja-mean-tokens-v2
 - Search through transcriptions using vector search
 - View and play audio segments
+- Optimized startup with lazy-loading of ML models
+- Automatic GPU memory management with model unloading after inactivity
 
 ## Tech Stack
 
 - Python 3.12
-- FastAPI
+- FastAPI (with modern lifespan events)
 - SQLAlchemy
 - PostgreSQL
 - Qdrant
