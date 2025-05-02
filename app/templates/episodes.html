@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}QD - Episodes List{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">Episodes</h2>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Upload Date</th>
+                        <th>Filename</th>
+                        <th>Preview</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for episode in data.episodes %}
+                    <tr>
+                        <td>{{ episode.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <a href="/episodes/{{ episode.id }}" class="text-decoration-none">
+                                {{ episode.name }}
+                            </a>
+                            <div class="small text-muted">
+                                <span class="badge bg-secondary">{{ episode.media_type }}</span>
+                                <span class="badge bg-info">{{ episode.bytes|int // 1024 }} KB</span>
+                                {% if episode.length %}
+                                <span class="badge bg-success">{{ episode.length|int // 60 }}:{{
+                                    "%02d"|format(episode.length|int % 60) }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if episode.preview_segments %}
+                            <div class="preview-text">
+                                {% for segment in episode.preview_segments %}
+                                <p class="mb-1 text-truncate" style="max-width: 500px;">
+                                    <small class="text-muted">{{ segment.seg_no }}:</small>
+                                    {{ segment.text }}
+                                </p>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted">No preview available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if data.episodes|length == 0 %}
+        <div class="alert alert-info">
+            No episodes found. <a href="/upload" class="alert-link">Upload an audio file</a> to get started.
+        </div>
+        {% endif %}
+
+        <!-- Pagination -->
+        {% if data.pagination.total_pages > 1 %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not data.pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="/episodes?page={{ data.pagination.page - 1 }}" tabindex="-1" {% if not
+                        data.pagination.has_prev %}aria-disabled="true" {% endif %}>
+                        Previous
+                    </a>
+                </li>
+
+                {% for p in range(max(1, data.pagination.page - 2), min(data.pagination.total_pages + 1,
+                data.pagination.page + 3)) %}
+                <li class="page-item {% if p == data.pagination.page %}active{% endif %}">
+                    <a class="page-link" href="/episodes?page={{ p }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+
+                <li class="page-item {% if not data.pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="/episodes?page={{ data.pagination.page + 1 }}" {% if not
+                        data.pagination.has_next %}aria-disabled="true" {% endif %}>
+                        Next
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

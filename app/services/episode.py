@@ -10,6 +10,84 @@ class EpisodeService:
     Service for retrieving episode data
     """
 
+    def get_episodes_list(
+        self, page: int, per_page: int, db: Session
+    ) -> Dict[str, Any]:
+        """
+        Get paginated list of episodes with their first segments
+
+        Args:
+            page: Page number (1-based)
+            per_page: Number of episodes per page
+            db: Database session
+
+        Returns:
+            Dictionary with episodes data and pagination info
+        """
+        # Calculate offset
+        offset = (page - 1) * per_page
+
+        # Query episodes with pagination
+        episodes = (
+            db.query(Episode)
+            .order_by(Episode.created_at.desc())
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+
+        # Get total count for pagination
+        total_count = db.query(Episode).count()
+
+        # Convert episodes to dict and get first segments
+        episodes_data = []
+        for episode in episodes:
+            # Get basic episode data
+            episode_data = {
+                "id": episode.id,
+                "name": episode.name,
+                "media_type": episode.media_type,
+                "ext": self._get_extension(episode.media_type),
+                "bytes": episode.bytes,
+                "length": episode.length / 1000 if episode.length is not None else 0,
+                "created_at": episode.created_at,
+            }
+
+            # Get first 3 segments
+            segments = (
+                db.query(EpisodeSegment)
+                .filter(EpisodeSegment.episode_id == episode.id)
+                .order_by(EpisodeSegment.seg_no)
+                .limit(3)
+                .all()
+            )
+
+            # Add segments to episode data
+            episode_data["preview_segments"] = [
+                {
+                    "seg_no": segment.seg_no,
+                    "text": segment.text,
+                }
+                for segment in segments
+            ]
+
+            episodes_data.append(episode_data)
+
+        # Prepare pagination data
+        total_pages = (total_count + per_page - 1) // per_page
+
+        return {
+            "episodes": episodes_data,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+            },
+        }
+
     def get_episode(self, episode_id: str, db: Session) -> Optional[Dict[str, Any]]:
         """
         Get episode data

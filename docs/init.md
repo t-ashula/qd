@@ -55,6 +55,7 @@
   - text: string
   - file_id: string (uuid)
   - seg_no: number
+  - segment_id: string (`${file_id}-${seg_no:04d}`)
 
 ### episodes_v2 collection
 
@@ -66,6 +67,7 @@
   - text: string
   - episode_id: string (uuid)
   - seg_no: number
+  - segment_id: string (`${file_id}-${seg_no:04d}`)
 
 ## web ui
 
@@ -79,15 +81,22 @@
 
 - クエリパラメータ `q` で検索キーワードを受け取る
 - 検索キーワードを embedding の各モデルを使ってベクトル化して，qdrant の各コレクションに対して検索
-- 検索結果を `f"{payload.episode_id}-{payload.seg_no:%04d}` をキーにマージして，スコアの高い方から順に20件表示
+- 検索結果を payload.segment_id をキーにマージして，スコアの高い方から順に20件表示
   - 検索結果から `/episodes/${payload.episode_id}#seg${payload.seg_no}` へリンク
 - q がなければ `/` にリダイレクト
 
 ### `/episodes/:episode_id`
 
 - db の episodes テーブルと episode_segments テーブルから `:episode_id` のデータを持ってきて表示
-- segments の表示に対して `<div id=#${episode_segments.seg_no}></div>` としておいてリンクできるようにする
+- segments の表示に対して `<div id=#seg${episode_segments.seg_no}></div>` としておいてリンクできるようにする
 - `/media/:episode_id.:ext` を再生(audio 要素？)可能にする
+
+### `/episodes`
+
+- db の episodes テーブルから created_at が新しい方から 20 件ずつページングしつつ表示
+  - アップロード日(created_at)，元ファイル名，冒頭の3列
+  - 元ファイル名に `/episodes/:episode_id` へのリンクを張る
+  - 「冒頭」には各エピソードの episode_segments の seq_no が小さい方から 3件ほどの text を使う
 
 ### `/media/:episode_id.:ext`
 
