@@ -111,10 +111,11 @@ class UploadService:
             # Extract text and timestamps
             text = chunk.get("text", "")
             timestamps = chunk.get("timestamp", [0, 0])
-
             # ms
-            start_time = int(float(timestamps[0]) * 1000)
-            end_time = int(float(timestamps[1]) * 1000)
+            start_time = timestamps[0] if timestamps[0] is not None else 0
+            end_time = timestamps[1] if timestamps[1] is not None else 0
+            start_time = int(float(start_time) * 1000)
+            end_time = int(float(end_time) * 1000)
 
             # Create segment record
             segment = EpisodeSegment(

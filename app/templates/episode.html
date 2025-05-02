@@ -37,8 +37,7 @@
 
         <div class="audio-player mb-4">
             <audio controls class="w-100" id="audio-player">
-                <source src="/media/{{ episode.id }}.{{ episode.media_type.split('/')[-1] }}"
-                    type="{{ episode.media_type }}">
+                <source src="/media/{{ episode.id }}.{{ episode.ext }}" type="{{ episode.media_type }}">
                 Your browser does not support the audio element.
             </audio>
         </div>

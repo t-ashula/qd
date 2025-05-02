@@ -39,4 +39,5 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
 
     except Exception as e:
         # If any other error, raise 500
-        raise HTTPException(status_code=500, detail=str(e))
+        print(e.__traceback__)
+        raise HTTPException(status_code=500, detail={"error": str(e)})
