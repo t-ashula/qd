@@ -29,6 +29,7 @@ class Episode(Base):  # type: ignore[valid-type, misc]
     bytes = Column(Integer, nullable=False)  # file size
     length = Column(Integer, nullable=True)  # duration in ms
     hash = Column(String(64), nullable=True, unique=True)  # sha256 hash
+    ext = Column(String, nullable=True)  # file extension
     created_at = Column(DateTime, default=func.now())
 
     def __repr__(self):

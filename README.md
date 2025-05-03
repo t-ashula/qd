@@ -30,6 +30,10 @@ QD is a web application that allows users to upload audio files, transcribe them
 - Docker and Docker Compose
 - Python 3.12
 - Poetry
+- libmagic (for file type detection)
+  - On Ubuntu/Debian: `sudo apt-get install libmagic1`
+  - On macOS: `brew install libmagic`
+  - On Windows: See [python-magic documentation](https://github.com/ahupp/python-magic#installation)
 
 ### Installation
 

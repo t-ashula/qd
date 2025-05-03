@@ -3,6 +3,7 @@ import mimetypes
 import uuid
 from typing import Any, BinaryIO, Dict, Optional, Tuple
 
+import magic
 from sqlalchemy.orm import Session
 
 from app.models.models import Episode, EpisodeSegment
@@ -40,8 +41,7 @@ class UploadService:
             Episode ID
         """
         # Get media type and extension
-        media_type = self._get_media_type(filename)
-        extension = self._get_extension(media_type)
+        media_type, extension = self._detect_media_type_and_extension(file, filename)
 
         # Check if media type is supported
         if media_type not in self.supported_media_types:
@@ -70,6 +70,7 @@ class UploadService:
             name=filename,
             bytes=file_size,
             hash=file_hash,
+            ext=extension,
             length=None,  # Will be updated after transcription
         )
         db.add(episode)
@@ -110,26 +111,58 @@ class UploadService:
 
         return sha256_hash, file_content
 
-    def _get_media_type(self, filename: str) -> str | None:
+    def _detect_media_type_and_extension(
+        self, file: BinaryIO, filename: str
+    ) -> Tuple[str, str]:
         """
-        Get media type from filename
-        """
-        media_type, _ = mimetypes.guess_type(filename)
-        return media_type
+        Detect media type and extension using multiple methods:
+        1. python-magic (libmagic)
+        2. Filename extension (mimetypes)
+        3. Default to audio/mpeg and mp3 if unknown
 
-    def _get_extension(self, media_type: str | None) -> str:
+        Args:
+            file: File-like object
+            filename: Original filename
+
+        Returns:
+            Tuple of (media_type, extension)
         """
-        Get file extension from media type
-        """
-        if media_type == "audio/mpeg":
-            return "mp3"
-        elif media_type == "audio/wav":
-            return "wav"
-        elif media_type in ["audio/x-m4a", "audio/mp4"]:
-            return "m4a"
-        else:
-            # Default extension
-            return "mp3"
+        # Method 1: Try to detect using python-magic
+        try:
+            # Save current position
+            current_position = file.tell()
+
+            # Read a sample of the file for magic detection
+            sample = file.read(2048)
+
+            # Reset to original position
+            file.seek(current_position)
+
+            # Detect mime type using magic
+            mime_type = magic.from_buffer(sample, mime=True)
+
+            if mime_type in self.supported_media_types:
+                # Get extension from detected mime type
+                if mime_type == "audio/mpeg":
+                    return mime_type, "mp3"
+                elif mime_type == "audio/wav":
+                    return mime_type, "wav"
+                elif mime_type in ["audio/x-m4a", "audio/mp4"]:
+                    return mime_type, "m4a"
+        except Exception:
+            # If magic detection fails, continue to next method
+            pass
+
+        # Method 2: Try to detect from filename
+        media_type, _ = mimetypes.guess_type(filename)
+        if media_type is not None and media_type in self.supported_media_types:
+            # Get extension from filename
+            ext = filename.split(".")[-1].lower() if "." in filename else ""
+            if ext in ["mp3", "wav", "m4a"]:
+                return media_type, ext
+
+        # Method 3: Default to audio/mpeg and mp3
+        return "audio/mpeg", "mp3"
 
     def _process_transcription(
         self, transcription: Dict[str, Any], episode_id: str, db: Session

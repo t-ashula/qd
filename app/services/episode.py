@@ -43,11 +43,11 @@ class EpisodeService:
         episodes_data = []
         for episode in episodes:
             # Get basic episode data
-            episode_data = {
+            episode_data: Dict[str, Any] = {
                 "id": episode.id,
                 "name": episode.name,
                 "media_type": episode.media_type,
-                "ext": self._get_extension(episode.media_type),  # type: ignore
+                "ext": episode.ext or "mp3",  # Default to mp3 if ext is None
                 "bytes": episode.bytes,
                 "length": episode.length / 1000 if episode.length is not None else 0,
                 "created_at": episode.created_at,
@@ -129,7 +129,7 @@ class EpisodeService:
         episode_data = {
             "id": episode.id,
             "media_type": episode.media_type,
-            "ext": self._get_extension(episode.media_type),  # type: ignore
+            "ext": episode.ext or "mp3",  # Default to mp3 if ext is None
             "name": episode.name,
             "bytes": episode.bytes,
             "length": episode_length,
@@ -229,21 +229,6 @@ class EpisodeService:
         db.commit()
 
         return True
-
-    # TODO: unify UploadService, or save extension as column
-    def _get_extension(self, media_type: str | None) -> str:
-        """
-        Get file extension from media type
-        """
-        if media_type == "audio/mpeg":
-            return "mp3"
-        elif media_type == "audio/wav":
-            return "wav"
-        elif media_type in ["audio/x-m4a", "audio/mp4"]:
-            return "m4a"
-        else:
-            # Default extension
-            return "mp3"
 
 
 # Singleton instance
