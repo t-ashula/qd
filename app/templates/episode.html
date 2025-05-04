@@ -37,6 +37,9 @@
                     }}</span>
                 {% endif %}
                 <span class="badge bg-dark">{{ episode.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                {% if episode.transcription_model %}
+                <span class="badge bg-primary">{{ episode.transcription_model.display_name }}</span>
+                {% endif %}
             </p>
         </div>
 

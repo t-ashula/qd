@@ -6,11 +6,11 @@ from typing import Any, BinaryIO, Dict, Optional, Tuple
 import magic
 from sqlalchemy.orm import Session
 
-from app.models.models import Episode, EpisodeSegment
+from app.models.models import Episode, EpisodeSegment, TranscribeHistory
 from app.services.embedding import embedding_service
 from app.services.episode import episode_service
 from app.services.storage import storage_service
-from app.transcriber.transcriber import transcriber_service
+from app.transcriber.transcriber import DEFAULT_MODEL, transcriber_service
 from app.vectorstore.qdrant import qdrant_manager
 
 
@@ -28,7 +28,13 @@ class UploadService:
             "audio/mp4",  # m4a alternative
         ]
 
-    def process_upload(self, file: BinaryIO, filename: str, db: Session) -> str:
+    def process_upload(
+        self,
+        file: BinaryIO,
+        filename: str,
+        db: Session,
+        model_name: str = DEFAULT_MODEL,
+    ) -> str:
         """
         Process uploaded file
 
@@ -36,6 +42,7 @@ class UploadService:
             file: File-like object
             filename: Original filename
             db: Database session
+            model_name: Name of the transcription model to use
 
         Returns:
             Episode ID
@@ -76,11 +83,21 @@ class UploadService:
         db.add(episode)
         db.commit()
 
-        # Transcribe audio
-        transcription = transcriber_service.transcribe(file_path)
+        # Transcribe audio with specified model
+        transcription = transcriber_service.transcribe(file_path, model_name)
+
+        # Create transcribe history record
+        transcribe_history = TranscribeHistory(
+            episode_id=episode_id,
+            model_name=model_name,
+        )
+        db.add(transcribe_history)
+        db.flush()  # Get ID without committing
 
         # Process transcription chunks
-        self._process_transcription(transcription, episode_id, db)
+        self._process_transcription(
+            transcription, episode_id, int(transcribe_history.id), db
+        )
 
         # Update episode length if available
         if "duration" in transcription:
@@ -165,13 +182,24 @@ class UploadService:
         return "audio/mpeg", "mp3"
 
     def _process_transcription(
-        self, transcription: Dict[str, Any], episode_id: str, db: Session
+        self,
+        transcription: Dict[str, Any],
+        episode_id: str,
+        transcribe_history_id: int,
+        db: Session,
     ):
         """
         Process transcription chunks
+
+        Args:
+            transcription: Transcription result
+            episode_id: Episode ID
+            transcribe_history_id: Transcribe history ID
+            db: Database session
         """
         # Get chunks from transcription
         chunks = transcription.get("chunks", [])
+        model_name = transcription.get("model_name", DEFAULT_MODEL)
 
         # Process each chunk
         for seg_no, chunk in enumerate(chunks):
@@ -187,6 +215,7 @@ class UploadService:
             # Create segment record
             segment = EpisodeSegment(
                 episode_id=episode_id,
+                transcribe_history_id=transcribe_history_id,
                 seg_no=seg_no,
                 start=start_time,
                 end=end_time,
@@ -206,10 +235,11 @@ class UploadService:
                 "episode_id": episode_id,
                 "seg_no": seg_no,
                 "segment_id": f"{episode_id}-{seg_no:04d}",
+                "transcribe_history_id": transcribe_history_id,
+                "model_name": model_name,
             }
 
             # Add to vector stores
-
             qdrant_manager.add_segment_e5(e5_embedding, payload)
             qdrant_manager.add_segment_v2(sbert_embedding, payload)
 

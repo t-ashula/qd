@@ -36,6 +36,22 @@ class Episode(Base):  # type: ignore[valid-type, misc]
         return f"<Episode(id='{self.id}', name='{self.name}')>"
 
 
+class TranscribeHistory(Base):  # type: ignore[valid-type, misc]
+    """
+    Transcribe histories table for storing transcription history
+    """
+
+    __tablename__ = "transcribe_histories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    episode_id = Column(String, ForeignKey("episodes.id"), nullable=False)
+    model_name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+    def __repr__(self):
+        return f"<TranscribeHistory(id={self.id}, episode_id='{self.episode_id}', model_name='{self.model_name}')>"
+
+
 class EpisodeSegment(Base):  # type: ignore[valid-type, misc]
     """
     Episode segments table for storing transcribed segments
@@ -45,6 +61,9 @@ class EpisodeSegment(Base):  # type: ignore[valid-type, misc]
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     episode_id = Column(String, ForeignKey("episodes.id"), nullable=False)
+    transcribe_history_id = Column(
+        Integer, ForeignKey("transcribe_histories.id"), nullable=True
+    )
     seg_no = Column(Integer, nullable=False)
     start = Column(Integer, nullable=False)  # start time in ms
     end = Column(Integer, nullable=False)  # end time in ms

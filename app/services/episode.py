@@ -1,8 +1,9 @@
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.models.models import Episode, EpisodeSegment
+from app.models.models import Episode, EpisodeSegment, TranscribeHistory
+from app.transcriber.transcriber import AVAILABLE_MODELS
 
 
 class EpisodeService:
@@ -71,6 +72,27 @@ class EpisodeService:
                 for segment in segments
             ]
 
+            # Get latest transcription model
+            latest_history = (
+                db.query(TranscribeHistory)
+                .filter(TranscribeHistory.episode_id == episode.id)
+                .order_by(TranscribeHistory.created_at.desc())
+                .first()
+            )
+
+            if latest_history:
+                latest_model_name = str(latest_history.model_name)
+                model_display_name = AVAILABLE_MODELS.get(
+                    latest_model_name, latest_model_name
+                )
+
+                episode_data["transcription_model"] = {
+                    "id": latest_history.id,
+                    "model_name": latest_history.model_name,
+                    "display_name": model_display_name,
+                    "created_at": latest_history.created_at,
+                }
+
             episodes_data.append(episode_data)
 
         # Prepare pagination data
@@ -126,7 +148,7 @@ class EpisodeService:
 
         # Convert to dict
         episode_length = episode.length / 1000 if episode.length is not None else 0
-        episode_data = {
+        episode_data: Dict[str, Any] = {
             "id": episode.id,
             "media_type": episode.media_type,
             "ext": episode.ext or "mp3",  # Default to mp3 if ext is None
@@ -136,10 +158,45 @@ class EpisodeService:
             "created_at": episode.created_at,
         }
 
+        # Get transcription histories
+        histories = (
+            db.query(TranscribeHistory)
+            .filter(TranscribeHistory.episode_id == episode_id)
+            .order_by(TranscribeHistory.created_at.desc())
+            .all()
+        )
+
+        if histories:
+            episode_data["transcription_histories"] = [
+                {
+                    "id": history.id,
+                    "model_name": history.model_name,
+                    "display_name": AVAILABLE_MODELS.get(
+                        str(history.model_name), str(history.model_name)
+                    ),
+                    "created_at": history.created_at,
+                }
+                for history in histories
+            ]
+
+            # Add the latest model as the current model
+            latest_history = histories[0]
+            latest_model_name = str(latest_history.model_name)
+            model_display_name = AVAILABLE_MODELS.get(
+                latest_model_name, latest_model_name
+            )
+
+            episode_data["transcription_model"] = {
+                "id": latest_history.id,
+                "model_name": latest_history.model_name,
+                "display_name": model_display_name,
+                "created_at": latest_history.created_at,
+            }
+
         return episode_data
 
     def get_episode_segments(
-        self, episode_id: str, db: Session
+        self, episode_id: str, db: Session, transcribe_history_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Get episode segments
@@ -147,23 +204,29 @@ class EpisodeService:
         Args:
             episode_id: Episode ID
             db: Database session
+            transcribe_history_id: Optional transcribe history ID to filter segments
 
         Returns:
             List of episode segments
         """
-        # Query segments
-        segments = (
-            db.query(EpisodeSegment)
-            .filter(EpisodeSegment.episode_id == episode_id)
-            .order_by(EpisodeSegment.seg_no)
-            .all()
-        )
+        # Build query
+        query = db.query(EpisodeSegment).filter(EpisodeSegment.episode_id == episode_id)
+
+        # Filter by transcribe_history_id if provided
+        if transcribe_history_id is not None:
+            query = query.filter(
+                EpisodeSegment.transcribe_history_id == transcribe_history_id
+            )
+
+        # Get segments ordered by seg_no
+        segments = query.order_by(EpisodeSegment.seg_no).all()
 
         # Convert to list of dicts
         segments_data = [
             {
                 "id": segment.id,
                 "episode_id": segment.episode_id,
+                "transcribe_history_id": segment.transcribe_history_id,
                 "seg_no": segment.seg_no,
                 "start": segment.start / 1000 if segment.start is not None else 0,
                 "end": segment.end / 1000 if segment.end is not None else 0,
@@ -176,7 +239,7 @@ class EpisodeService:
         return segments_data
 
     def get_episode_with_segments(
-        self, episode_id: str, db: Session
+        self, episode_id: str, db: Session, transcribe_history_id: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get episode data with segments
@@ -184,6 +247,7 @@ class EpisodeService:
         Args:
             episode_id: Episode ID
             db: Database session
+            transcribe_history_id: Optional transcribe history ID to filter segments
 
         Returns:
             Episode data with segments or None if not found
@@ -194,8 +258,12 @@ class EpisodeService:
         if not episode_data:
             return None
 
+        # If transcribe_history_id is not provided but we have histories, use the latest
+        if transcribe_history_id is None and "transcription_histories" in episode_data:
+            transcribe_history_id = episode_data["transcription_histories"][0]["id"]
+
         # Get segments
-        segments_data = self.get_episode_segments(episode_id, db)
+        segments_data = self.get_episode_segments(episode_id, db, transcribe_history_id)
 
         # Add segments to episode data
         episode_data["segments"] = segments_data
@@ -218,6 +286,11 @@ class EpisodeService:
 
         if not episode:
             return False
+
+        # Delete transcribe histories
+        db.query(TranscribeHistory).filter(
+            TranscribeHistory.episode_id == episode_id
+        ).delete()
 
         # Delete segments
         db.query(EpisodeSegment).filter(

@@ -82,7 +82,21 @@
                         <p class="mb-0"><strong>Type:</strong> <span id="file-type"></span></p>
                     </div>
 
-                    <div class="progress">
+                    <div class="form-group mt-3">
+                        <label for="model-select"><strong>Transcription Model:</strong></label>
+                        <select class="form-select" id="model-select" name="model_name">
+                            {% for model_name, display_name in available_models.items() %}
+                            <option value="{{ model_name }}" {% if model_name==default_model %}selected{% endif %}>{{
+                                display_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted">
+                            Select the model to use for transcription. Different models may have different accuracy and
+                            performance characteristics.
+                        </div>
+                    </div>
+
+                    <div class="progress mt-3">
                         <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
                             style="width: 0%"></div>
                     </div>
@@ -96,11 +110,12 @@
                     <h5>Processing Steps:</h5>
                     <ol>
                         <li>Upload audio file</li>
-                        <li>Transcribe audio using Kotoba Whisper v2.2</li>
+                        <li>Transcribe audio using selected model</li>
                         <li>Vectorize segments using E5 and SBERT models</li>
                         <li>Store in database and vector search index</li>
                     </ol>
-                    <p class="mb-0"><strong>Note:</strong> Processing may take some time depending on the file size.</p>
+                    <p class="mb-0"><strong>Note:</strong> Processing may take some time depending on the file size and
+                        selected model.</p>
                 </div>
             </div>
         </div>

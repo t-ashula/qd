@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.services.upload import upload_service
+from app.transcriber.transcriber import DEFAULT_MODEL, transcriber_service
 
 # Create router
 router = APIRouter()
@@ -18,17 +19,37 @@ async def upload_form(request: Request):
     """
     Upload form page
     """
-    return templates.TemplateResponse("upload.html", {"request": request})
+    # Get available models for template
+    available_models = transcriber_service.get_available_models()
+    return templates.TemplateResponse(
+        "upload.html",
+        {
+            "request": request,
+            "available_models": available_models,
+            "default_model": DEFAULT_MODEL,
+        },
+    )
 
 
 @router.post("/", response_class=RedirectResponse)
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_file(
+    file: UploadFile = File(...),
+    model_name: str = Form(DEFAULT_MODEL),
+    db: Session = Depends(get_db),
+):
     """
     Upload file endpoint
+
+    Args:
+        file: Uploaded file
+        model_name: Name of the transcription model to use
+        db: Database session
     """
     try:
-        # Process upload
-        episode_id = upload_service.process_upload(file.file, f"{file.filename}", db)
+        # Process upload with specified model
+        episode_id = upload_service.process_upload(
+            file.file, f"{file.filename}", db, model_name
+        )
 
         # Redirect to episode page
         return RedirectResponse(url=f"/episodes/{episode_id}", status_code=303)
