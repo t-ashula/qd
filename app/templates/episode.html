@@ -50,7 +50,90 @@
             </audio>
         </div>
 
+        {% if "transcription_histories" in episode %}
+        <div class="mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">別モデルでの文字起こし</h5>
+                    <form id="transcribeForm" class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label for="modelSelect" class="form-label">モデル選択</label>
+                            <select class="form-select" id="modelSelect" name="model_name">
+                                {% for model_name, display_name in available_models.items() %}
+                                <option value="{{ model_name }}" {% if model_name in used_models %}disabled{% endif %}>
+                                    {{ display_name }}{% if model_name in used_models %} (済){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary w-100" id="transcribeButton" {% if
+                                all_models_used %}disabled{% endif %}>
+                                文字起こし実行
+                            </button>
+                        </div>
+                    </form>
+                    {% if all_models_used %}
+                    <div class="alert alert-info mt-3 mb-0">
+                        全てのモデルで文字起こしが完了しています。
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <h3>Transcription</h3>
+
+        {% if "transcription_histories" in episode and episode.transcription_histories|length > 1 %}
+        <ul class="nav nav-tabs mb-3" id="transcriptionTabs" role="tablist">
+            {% for history in episode.transcription_histories %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if loop.first %}active{% endif %}" id="model-tab-{{ history.id }}"
+                    data-bs-toggle="tab" data-bs-target="#model-content-{{ history.id }}" type="button" role="tab"
+                    aria-controls="model-content-{{ history.id }}"
+                    aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                    {{ history.display_name }}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="tab-content" id="transcriptionTabContent">
+            {% for history in episode.transcription_histories %}
+            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="model-content-{{ history.id }}"
+                role="tabpanel" aria-labelledby="model-tab-{{ history.id }}">
+
+                <div class="segments" data-history-id="{{ history.id }}">
+                    {% if history.id == current_history_id %}
+                    {% for segment in episode.segments %}
+                    <div class="segment" id="seg{{ segment.seg_no }}">
+                        <div class="d-flex justify-content-between">
+                            <div class="timestamp">
+                                <span class="badge bg-light text-dark">{{ segment.seg_no }}</span>
+                                <button class="btn btn-sm btn-outline-secondary play-segment"
+                                    data-start="{{ segment.start }}" data-end="{{ segment.end }}">
+                                    {{ segment.start|int // 60 }}:{{ "%02d"|format(segment.start|int % 60) }} -
+                                    {{ segment.end|int // 60 }}:{{ "%02d"|format(segment.end|int % 60) }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="mt-2">{{ segment.text }}</p>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">セグメントを読み込み中...</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
         <div class="segments">
             {% for segment in episode.segments %}
             <div class="segment" id="seg{{ segment.seg_no }}">
@@ -68,6 +151,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -100,32 +184,39 @@
         const audioPlayer = document.getElementById('audio-player');
         const segments = document.querySelectorAll('.segment');
         const playButtons = document.querySelectorAll('.play-segment');
+        const transcribeForm = document.getElementById('transcribeForm');
+        const transcriptionTabs = document.getElementById('transcriptionTabs');
 
         // Handle segment play buttons
-        playButtons.forEach(button => {
-            button.addEventListener('click', function () {
-                const start = parseFloat(this.getAttribute('data-start'));
-                const end = parseFloat(this.getAttribute('data-end'));
+        function setupPlayButtons() {
+            document.querySelectorAll('.play-segment').forEach(button => {
+                button.addEventListener('click', function () {
+                    const start = parseFloat(this.getAttribute('data-start'));
+                    const end = parseFloat(this.getAttribute('data-end'));
 
-                // Set current time and play
-                audioPlayer.currentTime = start;
-                audioPlayer.play();
+                    // Set current time and play
+                    audioPlayer.currentTime = start;
+                    audioPlayer.play();
 
-                // Highlight active segment
-                segments.forEach(seg => seg.classList.remove('segment-active'));
-                this.closest('.segment').classList.add('segment-active');
+                    // Highlight active segment
+                    document.querySelectorAll('.segment').forEach(seg => seg.classList.remove('segment-active'));
+                    this.closest('.segment').classList.add('segment-active');
 
-                // Stop at end time
-                const checkTime = function () {
-                    if (audioPlayer.currentTime >= end) {
-                        audioPlayer.pause();
-                        audioPlayer.removeEventListener('timeupdate', checkTime);
-                    }
-                };
+                    // Stop at end time
+                    const checkTime = function () {
+                        if (audioPlayer.currentTime >= end) {
+                            audioPlayer.pause();
+                            audioPlayer.removeEventListener('timeupdate', checkTime);
+                        }
+                    };
 
-                audioPlayer.addEventListener('timeupdate', checkTime);
+                    audioPlayer.addEventListener('timeupdate', checkTime);
+                });
             });
-        });
+        }
+
+        // Initial setup of play buttons
+        setupPlayButtons();
 
         // Handle hash navigation
         if (window.location.hash) {
@@ -135,10 +226,8 @@
                 targetSegment.classList.add('segment-active');
             }
         }
-    });
 
-    // Set up delete form
-    document.addEventListener('DOMContentLoaded', function () {
+        // Set up delete form
         const deleteForm = document.getElementById('deleteForm');
         deleteForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -157,6 +246,111 @@
                 alert('削除に失敗しました。');
             });
         });
+
+        // Handle transcribe form submission
+        if (transcribeForm) {
+            transcribeForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const modelSelect = document.getElementById('modelSelect');
+                const transcribeButton = document.getElementById('transcribeButton');
+                const selectedModel = modelSelect.value;
+
+                // Disable form elements during transcription
+                modelSelect.disabled = true;
+                transcribeButton.disabled = true;
+                transcribeButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 処理中...';
+
+                // Send POST request to transcribe endpoint
+                fetch('/episodes/{{ episode.id }}/transcribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_name: selectedModel
+                    })
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                }).then(data => {
+                    // Reload the page to show the new transcription
+                    window.location.reload();
+                }).catch(error => {
+                    console.error('Error:', error);
+                    alert('文字起こしに失敗しました。');
+
+                    // Re-enable form elements
+                    modelSelect.disabled = false;
+                    transcribeButton.disabled = false;
+                    transcribeButton.textContent = '文字起こし実行';
+                });
+            });
+        }
+
+        // Handle tab changes to load segments
+        if (transcriptionTabs) {
+            transcriptionTabs.addEventListener('shown.bs.tab', function (event) {
+                const targetTab = event.target;
+                const historyId = targetTab.getAttribute('data-bs-target').replace('#model-content-', '');
+                const segmentsContainer = document.querySelector(`.segments[data-history-id="${historyId}"]`);
+
+                // If segments are not loaded yet (contains loading spinner)
+                if (segmentsContainer.querySelector('.spinner-border')) {
+                    // Fetch segments for this history
+                    fetch(`/episodes/{{ episode.id }}/segments?history_id=${historyId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Clear loading indicator
+                            segmentsContainer.innerHTML = '';
+
+                            // Add segments
+                            data.segments.forEach(segment => {
+                                const startMin = Math.floor(segment.start / 60);
+                                const startSec = Math.floor(segment.start % 60);
+                                const endMin = Math.floor(segment.end / 60);
+                                const endSec = Math.floor(segment.end % 60);
+
+                                const segmentHtml = `
+                                    <div class="segment" id="seg${segment.seg_no}">
+                                        <div class="d-flex justify-content-between">
+                                            <div class="timestamp">
+                                                <span class="badge bg-light text-dark">${segment.seg_no}</span>
+                                                <button class="btn btn-sm btn-outline-secondary play-segment"
+                                                    data-start="${segment.start}" data-end="${segment.end}">
+                                                    ${startMin}:${String(startSec).padStart(2, '0')} -
+                                                    ${endMin}:${String(endSec).padStart(2, '0')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p class="mt-2">${segment.text}</p>
+                                    </div>
+                                `;
+
+                                segmentsContainer.insertAdjacentHTML('beforeend', segmentHtml);
+                            });
+
+                            // Setup play buttons for new segments
+                            setupPlayButtons();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            segmentsContainer.innerHTML = `
+                                <div class="alert alert-danger">
+                                    セグメントの読み込みに失敗しました。
+                                </div>
+                            `;
+                        });
+                }
+            });
+        }
     });
 </script>
 {% endblock %}
