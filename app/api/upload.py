@@ -45,6 +45,9 @@ async def upload_file(
         model_name: Name of the transcription model to use
         db: Database session
     """
+    episode_id = None
+    extension = None
+
     try:
         # Process upload with specified model
         episode_id = upload_service.process_upload(
@@ -59,6 +62,21 @@ async def upload_file(
         raise HTTPException(status_code=400, detail=str(e))
 
     except Exception as e:
-        # If any other error, raise 500
+        # If any other error, clean up resources and raise 500
+        print(f"Error during upload: {str(e)}")
         print(e.__traceback__)
+
+        # Clean up resources if episode_id was created
+        if episode_id:
+            # Try to determine file extension from filename
+            if file.filename is not None and "." in file.filename:
+                extension = file.filename.split(".")[-1].lower()
+            else:
+                # Default to mp3 if no extension found
+                extension = "mp3"
+
+            # Clean up resources
+            upload_service.cleanup_resources(episode_id, extension, db)
+
+        # Raise HTTP exception
         raise HTTPException(status_code=500, detail={"error": str(e)})

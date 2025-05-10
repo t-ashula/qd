@@ -48,22 +48,30 @@ class ModelInstance:
                 use_safetensors=True,
             )
             self.model.to(self.device)
-
-            # Load processor
             self.processor = AutoProcessor.from_pretrained(self.model_name)
-
             # Create pipeline
+            generate_kwargs = {
+                "num_beams": 6,
+                # "best_of": 6,
+                "temperature": [0.0],
+                "no_repeat_ngram_size": 3,
+                "logprob_threshold": -1.0,
+                "compression_ratio_threshold": 2.4,
+            }
+            if self.model_name == "kotoba-tech/kotoba-whisper-v2.2":
+                generate_kwargs["language"] = "ja"
+
             self.pipe = pipeline(
                 "automatic-speech-recognition",
                 model=self.model,
                 tokenizer=self.processor.tokenizer,
                 feature_extractor=self.processor.feature_extractor,
-                max_new_tokens=128,
-                chunk_length_s=30,
-                batch_size=16,
+                chunk_length_s=25,
+                stride_length_s=6,
                 return_timestamps=True,
                 torch_dtype=self.torch_dtype,
                 device=self.device,
+                generate_kwargs=generate_kwargs,
             )
 
             print(f"Transcription model {self.model_name} loaded successfully")
@@ -100,8 +108,11 @@ class ModelInstance:
         # Load model if not loaded
         self.load()
 
+        if self.pipe is None:
+            raise RuntimeError("no pipeline found")
+
         # Transcribe audio
-        result = self.pipe(audio_path)  # type:ignore
+        result = self.pipe(audio_path, chunk_length_s=25, stride_length_s=6)
 
         # Update last used time
         self.last_used = time.time()

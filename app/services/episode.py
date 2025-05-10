@@ -287,14 +287,14 @@ class EpisodeService:
         if not episode:
             return False
 
-        # Delete transcribe histories
-        db.query(TranscribeHistory).filter(
-            TranscribeHistory.episode_id == episode_id
-        ).delete()
-
-        # Delete segments
+        # Delete segments first to avoid foreign key constraint errors
         db.query(EpisodeSegment).filter(
             EpisodeSegment.episode_id == episode_id
+        ).delete()
+
+        # Delete transcribe histories after segments
+        db.query(TranscribeHistory).filter(
+            TranscribeHistory.episode_id == episode_id
         ).delete()
 
         # Delete episode

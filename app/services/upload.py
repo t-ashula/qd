@@ -28,6 +28,64 @@ class UploadService:
             "audio/mp4",  # m4a alternative
         ]
 
+    def cleanup_resources(self, episode_id: str, extension: str, db: Session):
+        """
+        Clean up resources when upload fails
+
+        This method deletes:
+        - Episode record from database
+        - TranscribeHistory records from database
+        - EpisodeSegment records from database
+        - Points from Qdrant collections
+        - Uploaded file from storage
+
+        Args:
+            episode_id: Episode ID to clean up
+            extension: File extension for the uploaded file
+            db: Database session
+        """
+        try:
+            # Delete points from Qdrant collections
+            try:
+                qdrant_manager.delete_points_by_episode_id(episode_id)
+            except Exception as e:
+                # Log error but continue cleanup
+                print(f"Error deleting Qdrant points: {str(e)}")
+
+            # Delete uploaded file
+            try:
+                storage_service.delete_file(episode_id, extension)
+            except Exception as e:
+                # Log error but continue cleanup
+                print(f"Error deleting file: {str(e)}")
+
+            # Delete database records
+            try:
+                # Delete segments first to avoid foreign key constraint errors
+                db.query(EpisodeSegment).filter(
+                    EpisodeSegment.episode_id == episode_id
+                ).delete()
+
+                # Delete transcribe histories
+                db.query(TranscribeHistory).filter(
+                    TranscribeHistory.episode_id == episode_id
+                ).delete()
+
+                # Delete episode
+                db.query(Episode).filter(Episode.id == episode_id).delete()
+
+                # Commit changes
+                db.commit()
+            except Exception as e:
+                # Log error but continue cleanup
+                print(f"Error deleting database records: {str(e)}")
+                # Rollback in case of error
+                db.rollback()
+
+        except Exception as e:
+            # Log any unexpected errors during cleanup
+            print(f"Unexpected error during cleanup: {str(e)}")
+
     def process_upload(
         self,
         file: BinaryIO,
@@ -47,65 +105,83 @@ class UploadService:
         Returns:
             Episode ID
         """
-        # Get media type and extension
-        media_type, extension = self._detect_media_type_and_extension(file, filename)
+        episode_id = None
+        extension = None
 
-        # Check if media type is supported
-        if media_type not in self.supported_media_types:
-            raise ValueError(f"Unsupported media type: {media_type}")
+        try:
+            # Get media type and extension
+            media_type, extension = self._detect_media_type_and_extension(
+                file, filename
+            )
 
-        # Calculate file hash and check if already exists
-        file_hash, file_content = self._calculate_file_hash(file)
-        existing_episode_id = episode_service.get_episode_by_hash(file_hash, db)
+            # Check if media type is supported
+            if media_type not in self.supported_media_types:
+                raise ValueError(f"Unsupported media type: {media_type}")
 
-        if existing_episode_id:
-            # File already exists, return existing episode ID
-            return existing_episode_id
+            # Calculate file hash and check if already exists
+            file_hash, file_content = self._calculate_file_hash(file)
+            existing_episode_id = episode_service.get_episode_by_hash(file_hash, db)
 
-        # Generate UUID for the new episode
-        episode_id = str(uuid.uuid4())
+            if existing_episode_id:
+                # File already exists, return existing episode ID
+                return existing_episode_id
 
-        # Save file to storage
-        file_path, file_size = storage_service.save_file_from_bytes(
-            file_content, episode_id, extension
-        )
+            # Generate UUID for the new episode
+            episode_id = str(uuid.uuid4())
 
-        # Create episode record
-        episode = Episode(
-            id=episode_id,
-            media_type=media_type,
-            name=filename,
-            bytes=file_size,
-            hash=file_hash,
-            ext=extension,
-            length=None,  # Will be updated after transcription
-        )
-        db.add(episode)
-        db.commit()
+            # Save file to storage
+            file_path, file_size = storage_service.save_file_from_bytes(
+                file_content, episode_id, extension
+            )
 
-        # Transcribe audio with specified model
-        transcription = transcriber_service.transcribe(file_path, model_name)
-
-        # Create transcribe history record
-        transcribe_history = TranscribeHistory(
-            episode_id=episode_id,
-            model_name=model_name,
-        )
-        db.add(transcribe_history)
-        db.flush()  # Get ID without committing
-
-        # Process transcription chunks
-        self._process_transcription(
-            transcription, episode_id, int(transcribe_history.id), db
-        )
-
-        # Update episode length if available
-        if "duration" in transcription:
-            # save as ms
-            episode.length = int(float(transcription["duration"]) * 1000)  # type: ignore
+            # Create episode record
+            episode = Episode(
+                id=episode_id,
+                media_type=media_type,
+                name=filename,
+                bytes=file_size,
+                hash=file_hash,
+                ext=extension,
+                length=None,  # Will be updated after transcription
+            )
+            db.add(episode)
             db.commit()
 
-        return episode_id
+            # Transcribe audio with specified model
+            transcription = transcriber_service.transcribe(file_path, model_name)
+
+            # Create transcribe history record
+            transcribe_history = TranscribeHistory(
+                episode_id=episode_id,
+                model_name=model_name,
+            )
+            db.add(transcribe_history)
+            db.flush()  # Get ID without committing
+
+            # Process transcription chunks
+            self._process_transcription(
+                transcription, episode_id, int(transcribe_history.id), db
+            )
+
+            # Update episode length if available
+            if "duration" in transcription:
+                # save as ms
+                episode.length = int(float(transcription["duration"]) * 1000)  # type: ignore
+                db.commit()
+
+            return episode_id
+
+        except Exception as e:
+            # If an error occurs after resources have been created, clean them up
+            if episode_id and extension:
+                # Rollback any uncommitted database changes
+                db.rollback()
+
+                # Clean up resources
+                self.cleanup_resources(episode_id, extension, db)
+
+            # Re-raise the exception
+            raise
 
     def _calculate_file_hash(self, file: BinaryIO) -> Tuple[str, bytes]:
         """
