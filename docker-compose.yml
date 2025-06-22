@@ -20,6 +20,29 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  qd-app:
+    build: .
+    ports:
+      - "9009:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=qd
+      - POSTGRES_PASSWORD=qd_password
+      - POSTGRES_DB=qd
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - MEDIA_DIR=/app/media
+      - DEBUG=true
+    volumes:
+      - ./media:/app/media
+      - ./app:/app/app
+    depends_on:
+      - postgres
+      - qdrant
+    command: ["poetry", "run", "python", "-m", "app.main"]
+    working_dir: /app
+
 volumes:
   postgres_data:
   qdrant_data:
